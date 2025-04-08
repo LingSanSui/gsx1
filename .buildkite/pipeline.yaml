@@ -1,0 +1,80 @@
+aws-secrets-block: &aws-secrets
+  seek-oss/aws-sm#v2.3.2:
+    json-to-env:
+      - secret-id: "arn:aws:secretsmanager:us-west-2:552179855668:secret:common/ci-secrets-HkoqU0"
+        json-key: ".EnvVars"
+
+aws-role-block: &aws-role
+  aws-assume-role-with-web-identity#v1.0.0:
+    role-arn: arn:aws:iam::552179855668:role/buildkite-oidc-role-live
+
+default-envs-block: &default-envs
+  AWS_DEFAULT_REGION: eu-central-1
+  AWS_REGION: eu-central-1
+  AWS_SESSION_TOKEN: $AWS_SESSION_TOKEN
+  AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  IMAGE_TAG: $IMAGE_TAG
+  RUSTC_WRAPPER: sccache
+  SCCACHE_BUCKET: gensyn-sccache
+  SCCACHE_REGION: eu-central-1
+  GITHUB_TOKEN: $GITHUB_TOKEN
+  BUILDKITE_API_ACCESS_TOKEN: $BUILDKITE_API_ACCESS_TOKEN
+  BUILDKITE_ARTIFACT_UPLOAD_DESTINATION: "gs://gensyn-buildkite-artifacts/$BUILDKITE_PIPELINE_ID/$BUILDKITE_BUILD_ID/$BUILDKITE_JOB_ID"
+  BUILDKITE_GCS_ACCESS_HOST: "storage.cloud.google.com"
+  BAZEL_CACHE_URL: $BAZEL_CACHE_URL
+
+standard-step-block: &standard-step
+  timeout_in_minutes: 80
+  agents:
+    queue: default
+  env:
+    <<: *default-envs
+  plugins:
+    - <<: *aws-role
+    - <<: *aws-secrets
+
+steps:
+  # Set the image tag so if this workflow is run on main, the images built will be tagged
+  # with either `pr-<num>` or `main`. Our agent has a hook that can set env variables in all
+  # downstream jobs just by prepending some metadata with "env-"
+  - label: "Set Image Tag Suffix"
+    agents:
+      queue: default
+    command: |
+      if [ ! "$BUILDKITE_PULL_REQUEST" == "false" ]; then
+        buildkite-agent meta-data set "env-IMAGE_TAG" "pr-$BUILDKITE_PULL_REQUEST"
+      else
+        buildkite-agent meta-data set "env-IMAGE_TAG" "main"
+      fi
+
+  - wait
+
+  - group: ":docker: Build Docker Images"
+    steps:
+      - label: "Build RL-Swarm Node Image"
+        agents:
+          queue: default
+        command: |
+          .buildkite/tools/build-oci-image.sh \
+            --output type=image,push=true,name=europe-docker.pkg.dev/gensyn-main/registry/rl-swarm:$$IMAGE_TAG \
+            --local dockerfile=/workdir/private-containerfiles/swarm-node \
+            --local context=/workdir \
+            --opt filename=./swarm-node.containerfile \
+            --export-cache type=registry,ref=europe-docker.pkg.dev/gensyn-main/registry/rl-swarm:cache-$$IMAGE_TAG,image-manifest=true,mode=max \
+            --import-cache type=registry,ref=europe-docker.pkg.dev/gensyn-main/registry/rl-swarm:cache-$$IMAGE_TAG \
+            --import-cache type=registry,ref=europe-docker.pkg.dev/gensyn-main/registry/rl-swarm:cache-main
+
+      - label: "Build RL-Swarm UI Image"
+        agents:
+          queue: default
+        command: |
+          .buildkite/tools/build-oci-image.sh \
+            --output type=image,push=true,name=europe-docker.pkg.dev/gensyn-main/registry/rl-swarm-www:$$IMAGE_TAG \
+            --local dockerfile=/workdir \
+            --local context=/workdir \
+            --opt filename=./Dockerfile.webserver \
+            --export-cache type=registry,ref=europe-docker.pkg.dev/gensyn-main/registry/rl-swarm-www:cache-$$IMAGE_TAG,image-manifest=true,mode=max \
+            --import-cache type=registry,ref=europe-docker.pkg.dev/gensyn-main/registry/rl-swarm-www:cache-$$IMAGE_TAG \
+            --import-cache type=registry,ref=europe-docker.pkg.dev/gensyn-main/registry/rl-swarm-www:cache-main
+
