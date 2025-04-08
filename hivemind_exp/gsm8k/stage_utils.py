@@ -2,7 +2,7 @@ import logging
 import time
 from collections import defaultdict
 from typing import Sequence
-
+import json
 import hivemind_exp.gsm8k.stage1_rewards as stage1_rewards
 import hivemind_exp.gsm8k.stage2_rewards as stage2_rewards
 import hivemind_exp.gsm8k.stage3_rewards as stage3_rewards
@@ -91,6 +91,15 @@ def merged_prev_stage_datasets(
     for outputs in q_to_keyed_outputs.values():
         merged = merge_fn(outputs)
         merged_qs.append(merged)
+    
+    # 添加日志输出merged_qs的信息
+    logger.info(f"合并了 {len(merged_qs)} 个问题")
+    if merged_qs:
+        # 输出第一个元素作为示例
+        #logger.info(f"merged_qs示例: {merged_qs[0]}")
+        # 如果需要更详细的信息，可以使用以下代码
+        # import json
+        logger.debug(f"<-------->完整的merged_qs: {json.dumps(merged_qs, indent=2)}")
 
     return samples_fn(merged_qs)
 
