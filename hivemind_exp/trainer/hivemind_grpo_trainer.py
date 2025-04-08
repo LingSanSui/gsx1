@@ -57,7 +57,7 @@ class HivemindGRPOTrainer:
             self.node = node  # Hivemind节点
             self.dht = dht    # DHT网络实例
             self.logger = logger  # 日志记录器
-            self.stage_rewards = 10.0  # 当前阶段的累计奖励
+            self.stage_rewards = 4.0  # 当前阶段的累计奖励
             super().__init__(processing_class=tokenizer, **kwargs)
 
         def publish_leaderboard(self):
@@ -132,7 +132,24 @@ class HivemindGRPOTrainer:
 
             # 累加最新的奖励值
             self.stage_rewards += sum(self.node.rewards)
-            
+            self.logger.info(
+                f"          ✅✅✅✅✅✅------✅✅✅✅✅ "
+            )
+            self.logger.info(
+                f" key ------>> 当前key值为 {rewards_key(self.node.round_num, self.node.stage_num)}"
+            )
+            self.logger.info(
+                f" subkey ------>> 当前subkey值为 {self.node.key}"
+            )
+            self.logger.info(
+                f" value ------>> 当前value值为 {self.stage_rewards}"
+            )
+            self.logger.info(
+                f" expiration_time ------>> 当前expiration_time值为 {get_dht_time() + self.node.out_expiration}"
+            )
+            self.logger.info(
+                f"          ✅✅✅✅✅✅------✅✅✅✅✅ "
+            )
             # 将累计奖励存储到DHT网络
             # 这是另一个网络通信操作，将节点的奖励发布到分布式网络
             self.dht.store(
