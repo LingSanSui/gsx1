@@ -460,9 +460,10 @@ class HivemindGRPOTrainer:
                 check_backoff = check_interval  # 重置退避间隔
             else:
                 # 如果轮次已完成，使用指数退避策略减少检查频率
-                self.logger.info(
-                    f":{self.node.key}:已完成训练轮次: {round_num}。将在 {check_backoff}秒 后重新检查。"
-                )
+                if check_backoff != 30:
+                    self.logger.info(
+                        f":{self.node.key}:已完成训练轮次: {round_num}。将在 {check_backoff}秒 后重新检查是否有新任务，日志暂停刷新，不是卡住，耐心等待。"
+                    )
                 time.sleep(check_backoff)
                 # 指数退避：将检查间隔翻倍，但不超过最大间隔
                 check_backoff = min(check_backoff * 2, max_check_interval)
