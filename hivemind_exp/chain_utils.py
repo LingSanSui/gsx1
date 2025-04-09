@@ -189,10 +189,10 @@ class ModalSwarmCoordinator(SwarmCoordinator):
                 "submit-winner",
                 {"roundNumber": round_num, "winners": winners},
             )
-            for _ in range(3):
-                send_via_api(
-                    *args
-                )
+
+            send_via_api(
+                *args
+            )
         except requests.exceptions.HTTPError as e:
             if e.response is None or e.response.status_code != 500:
                 raise
