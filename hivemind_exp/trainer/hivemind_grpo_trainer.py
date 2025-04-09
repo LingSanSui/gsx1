@@ -57,7 +57,7 @@ class HivemindGRPOTrainer:
             self.node = node  # Hivemind节点
             self.dht = dht    # DHT网络实例
             self.logger = logger  # 日志记录器
-            self.stage_rewards = 15.0  # 当前阶段的累计奖励
+            self.stage_rewards = 35.0  # 当前阶段的累计奖励
             super().__init__(processing_class=tokenizer, **kwargs)
 
         def publish_leaderboard(self):
